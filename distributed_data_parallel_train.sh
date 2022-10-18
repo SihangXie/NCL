@@ -9,7 +9,7 @@ PYTHON=${PYTHON:-"python"}
 CONFIG=$1
 NUM_GPUS=$2
 GPUS=$3
-PORT=${PORT:-29657}
+PORT=${PORT:-29500}
 
 
 CUDA_VISIBLE_DEVICES=$GPUS $PYTHON -m torch.distributed.launch --nproc_per_node=$NUM_GPUS --master_port=$PORT \

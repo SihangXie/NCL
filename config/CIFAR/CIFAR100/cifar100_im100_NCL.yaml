@@ -1,5 +1,6 @@
 NAME: 'NCL'
-OUTPUT_DIR: '/media/ssd1/lijun/output/NCL'
+#OUTPUT_DIR: '/media/ssd1/lijun/output/NCL'
+OUTPUT_DIR: '/home/og/XieSH/output/NCL/'  # 输出目录
 SHOW_STEP: 100
 SAVE_STEP: 100
 VALID_STEP: 1
@@ -8,8 +9,10 @@ COLOR_SPACE: 'RGB'
 
 DATASET:
   DATASET: 'MULTI_NETWORK_CIFAR_AUGPLIS'
-  TRAIN_JSON: '/media/ssd1/lijun/imbalance_cifar/converted/cifar100_imbalance100/cifar100_imbalance100_train.json'
-  VALID_JSON: '/media/ssd1/lijun/imbalance_cifar/converted/cifar100_imbalance100/cifar100_imbalance100_valid.json'
+  #TRAIN_JSON: '/media/ssd1/lijun/imbalance_cifar/converted/cifar100_imbalance100/cifar100_imbalance100_train.json'
+  TRAIN_JSON: '/home/og/XieSH/data/CIFAR-LT/converted/cifar100_imbalance100/cifar100_imbalance100_train.json' # 训练集JSON标注
+  #VALID_JSON: '/media/ssd1/lijun/imbalance_cifar/converted/cifar100_imbalance100/cifar100_imbalance100_valid.json'
+  VALID_JSON: '/home/og/XieSH/data/CIFAR-LT/converted/cifar100_imbalance100/cifar100_imbalance100_valid.json' # 验证集JSON标注
 
 NETWORK:
   MA_MODEL_ALPHA: 0.999
@@ -41,9 +44,9 @@ LOSS:
   CON_RATIO: 0.0
 TRAIN:
 
-  BATCH_SIZE: 64
+  BATCH_SIZE: 4
   MAX_EPOCH: 400
-  NUM_WORKERS: 2
+  NUM_WORKERS: 0
   COMBINER:
     TYPE: 'multi_network_default'
   OPTIMIZER:

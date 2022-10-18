@@ -42,7 +42,8 @@ def parse_args():
         "--cfg",
         help="decide which cfg to use",
         required=False,
-        default="/home/lijun/papers/NCL/config/CIFAR/CIFAR100/cifar100_im100_NCL_with_contrastive.yaml",
+        # default="/home/lijun/papers/NCL/config/CIFAR/CIFAR100/cifar100_im100_NCL_with_contrastive.yaml",  # 作者原来的配置文件加载路径
+        default="/home/og/XieSH/NCL/config/CIFAR/CIFAR100/cifar100_im100_NCL.yaml", # 改成自己服务器上的配置文件默认加载路径
         type=str,
     )
     parser.add_argument(
@@ -89,14 +90,14 @@ def setup_seed(seed):
 if __name__ == "__main__":
     #os.environ['CUDA_VISIBLE_DEVICES']='4'
     if torch.cuda.is_available():
-        print('using GPUS:%d' % torch.cuda.device_count())
+        print('using GPUS:%d' % torch.cuda.device_count())  # 打印服务器GPU数量
     else:
         print('no GPU')
 
     args = parse_args()
     local_rank = args.local_rank
     rank = local_rank
-    update_config(cfg, args)
+    update_config(cfg, args)    # 更新配置参数对象cfg的值
 
     logger, log_file = create_logger(cfg, local_rank)
     warnings.filterwarnings("ignore")

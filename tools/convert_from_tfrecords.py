@@ -38,7 +38,6 @@ def read_and_decode(filename_queue):
     label = tf.cast(features["label"], tf.int32)
     return image, label
 
-
 def convert_from_tfrecords(data_root, dir_name, num_class, mode, output_path, json_file_prefix):
     if mode == 'valid':
         tfrecord_path = os.path.join(data_root, dir_name, 'eval.tfrecords')
@@ -87,27 +86,32 @@ if __name__ == '__main__':
     cifar10_im100 = {'dir': 'cifar-10-data-im-0.01', 'json': 'cifar10_imbalance100', 'class':10}
     cifar100_im50 = {'dir': 'cifar-100-data-im-0.02', 'json': 'cifar100_imbalance50', 'class':100}
     cifar100_im100 = {'dir': 'cifar-100-data-im-0.01', 'json': 'cifar100_imbalance100', 'class': 100}
+    cifar100_origin = {'dir': 'cifar-100-data', 'json': 'cifar100_origin', 'class': 100}
+
 
     for m in modes:
+        # convert_from_tfrecords(
+        #     args.input_path, cifar10_im50['dir'],
+        #     cifar10_im50['class'], m, args.output_path,
+        #     cifar10_im50['json']
+        # )
+        # convert_from_tfrecords(
+        #     args.input_path, cifar10_im100['dir'],
+        #     cifar10_im100['class'], m, args.output_path,
+        #     cifar10_im100['json']
+        # )
+        # convert_from_tfrecords(
+        #     args.input_path, cifar100_im100['dir'],
+        #     cifar100_im100['class'], m, args.output_path,
+        #     cifar100_im100['json']
+        # )
+        # convert_from_tfrecords(
+        #     args.input_path, cifar100_im50['dir'],
+        #     cifar100_im50['class'], m, args.output_path,
+        #     cifar100_im50['json']
+        # )
         convert_from_tfrecords(
-            args.input_path, cifar10_im50['dir'],
-            cifar10_im50['class'], m, args.output_path,
-            cifar10_im50['json']
+            args.input_path, cifar100_origin['dir'],
+            cifar100_origin['class'], m, args.output_path,
+            cifar100_origin['json']
         )
-        convert_from_tfrecords(
-            args.input_path, cifar10_im100['dir'],
-            cifar10_im100['class'], m, args.output_path,
-            cifar10_im100['json']
-        )
-        convert_from_tfrecords(
-            args.input_path, cifar100_im100['dir'],
-            cifar100_im100['class'], m, args.output_path,
-            cifar100_im100['json']
-        )
-        convert_from_tfrecords(
-            args.input_path, cifar100_im50['dir'],
-            cifar100_im50['class'], m, args.output_path,
-            cifar100_im50['json']
-        )
-
-
