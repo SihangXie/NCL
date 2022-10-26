@@ -1,6 +1,6 @@
 NAME: 'NCL'
 #OUTPUT_DIR: '/media/ssd1/lijun/output/NCL'
-OUTPUT_DIR: '/home/og/XieSH/output/NCL/'  # 输出目录
+OUTPUT_DIR: '/home/og/XieSH/output/'  # 日志输出目录
 SHOW_STEP: 100
 SAVE_STEP: 100
 VALID_STEP: 1

@@ -1,42 +1,41 @@
-
 from core.evaluate import accuracy, AverageMeter
 import torch
 import time
 
-def multi_networks_train_model(
+
+def multi_networks_train_model( # 多专家网络训练器
         trainLoader, model, epoch, epoch_number, optimizer, combiner, criterion, cfg, logger, rank=0, **kwargs
 ):
-    if cfg.EVAL_MODE:
+    if cfg.EVAL_MODE:   # 验证阶段进
         model.eval()
-    else:
+    else:               # 训练阶段进
         model.train()
 
-    network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)
-    trainLoader.dataset.update(epoch)
-    combiner.update(epoch)
-    criterion.update(epoch)
+    network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)  # 专家数量3
+    trainLoader.dataset.update(epoch)   # 此方法可以实现渐进式调整训练集
+    combiner.update(epoch)          # 此方法可以实现渐进式调整组合器
+    criterion.update(epoch)         # 此方法可以实现渐进式调整损失函数
 
-    start_time = time.time()
-    number_batch = len(trainLoader)
+    start_time = time.time()    # 记录开始训练时间毫秒数
+    number_batch = len(trainLoader) # 计算一个epoch一共有多少批mini-batch：10847/4≈2711
 
-    all_loss = AverageMeter()
-    acc = AverageMeter()
-    for i, (image, label, meta) in enumerate(trainLoader):
+    all_loss = AverageMeter()   # 实例化平均损失函数计算器
+    acc = AverageMeter()        # 实例化准确率
+    for i, (image, label, meta) in enumerate(trainLoader):  # 应该要循环2711次吧
 
-        image_list = [image] * network_num
-        label_list = [label] * network_num
-        meta_list = [meta] * network_num
+        image_list = [image] * network_num  # 图片batch复制成3份{Tensor:(4,3,32,32)}的列表{list:3}
+        label_list = [label] * network_num  # 标签batch同上复制成了3份{Tensor:(4,)}的列表{list:3}
+        meta_list = [meta] * network_num    # 元数据batch复制成3份{dict:1}字典的列表{list:3}
 
-        cnt = label_list[0].shape[0]
+        cnt = label_list[0].shape[0]    # 获取标签列表第0个批量张量维度的第0个维度：4
 
-        optimizer.zero_grad()
+        optimizer.zero_grad()   # 梯度清零
 
         loss, now_acc = combiner.forward(model, criterion, image_list, label_list, meta_list, now_epoch=epoch,
                                          train=True, cfg=cfg, iteration=i, log=logger,
                                          class_list=criterion.num_class_list)
 
-
-        if cfg.NETWORK.MOCO:
+        if cfg.NETWORK.MOCO:    # CIFAR不进
             alpha = cfg.NETWORK.MA_MODEL_ALPHA
             for net_id in range(network_num):
                 net = ['backbone', 'module']
@@ -44,7 +43,6 @@ def multi_networks_train_model(
                     for ema_param, param in zip(eval('model.module.' + name + '_MA').parameters(),
                                                 eval('model.module.' + name).parameters()):
                         ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
-
 
         loss.backward()
         optimizer.step()
@@ -64,8 +62,9 @@ def multi_networks_train_model(
         logger.info(pbar_str)
     return acc.avg, all_loss.avg
 
+
 def multi_network_valid_model_final(
-    dataLoader, epoch_number, model, cfg, criterion, logger, device, rank, **kwargs
+        dataLoader, epoch_number, model, cfg, criterion, logger, device, rank, **kwargs
 ):
     model.eval()
     network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)
@@ -82,7 +81,7 @@ def multi_network_valid_model_final(
             image_list = [image for i in range(network_num)]
 
             if cfg.NETWORK.MOCO:
-                feature = model((image_list,image_list), label=label, feature_flag=True)
+                feature = model((image_list, image_list), label=label, feature_flag=True)
                 output_ce, output, output_MA = model(feature, classifier_flag=True)
             else:
                 feature = model(image_list, label=label, feature_flag=True)

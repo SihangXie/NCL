@@ -1,24 +1,24 @@
 import torch, math
 from bisect import bisect_right
 
-class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler):
+class WarmupMultiStepLR(torch.optim.lr_scheduler._LRScheduler): # 用于调整学习率
     def __init__(
         self,
-        optimizer,
-        milestones,
-        gamma=0.1,
-        warmup_factor=1.0 / 3,
-        warmup_epochs=5,
-        warmup_method="linear",
-        last_epoch=-1,
+        optimizer,  # 优化器
+        milestones, # 调整学习率的epoch数
+        gamma=0.1,  # γ值？没懂
+        warmup_factor=1.0 / 3,  # warmup因子：1/3
+        warmup_epochs=5,    # warmup epoch？5
+        warmup_method="linear", # warmup方法：线性
+        last_epoch=-1,  # 最后epoch：一直到最后
     ):
-        if not list(milestones) == sorted(milestones):
+        if not list(milestones) == sorted(milestones):  # 检查milestone是否为单调递增的整数列表
             raise ValueError(
                 "Milestones should be a list of" " increasing integers. Got {}",
                 milestones,
             )
 
-        if warmup_method not in ("constant", "linear"):
+        if warmup_method not in ("constant", "linear"): # 检查warmup方法是否为constant或linear之一
             raise ValueError(
                 "Only 'constant' or 'linear' warmup_method accepted"
                 "got {}".format(warmup_method)

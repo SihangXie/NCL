@@ -102,25 +102,26 @@ class BaseSet(Dataset):
     def __len__(self):
         return len(self.all_info['annotations'])
 
-    def imread_with_retry(self, fpath):
-        retry_time = 10
+    def imread_with_retry(self, fpath): # 读取图片，失败会重试10次
+        retry_time = 10 # 设置重试次数：10次
         for k in range(retry_time):
             try:
-                img = cv2.imread(fpath)
-                if img is None:
+                img = cv2.imread(fpath) # 调用OpenCV的读取图片
+                if img is None: # 如果为空就重试
                     print("img is None, try to re-read img")
                     continue
                 return img
             except Exception as e:
-                if k == retry_time - 1:
+                if k == retry_time - 1: # 如果重试次数用完，就会报错
                     assert False, "pillow open {} failed".format(fpath)
                 time.sleep(0.1)
 
-    def _get_image(self, now_info):
-        fpath = os.path.join(now_info["fpath"])
-        img = self.imread_with_retry(fpath)
-        if self.color_space == "RGB":
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    def _get_image(self, now_info): # 获取图片
+        # fpath = os.path.join(now_info["fpath"]) # 现在的目录join图片的目录
+        fpath = os.path.join('../', now_info["fpath"]) # Windows调试专用路径
+        img = self.imread_with_retry(fpath) # 调用上面的imread_with_retry()方法读图片
+        if self.color_space == "RGB":   # 色彩空间是RGB进
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # 转换色彩空间？
         return img
 
     def _get_trans_image(self, img_idx):

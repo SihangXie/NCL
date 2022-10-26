@@ -140,13 +140,13 @@ class MULTI_NETWORK_CIFAR_AUGPLIS(BaseSet):
             sample_indexes = self.class_dict[sample_class]
             index = random.choice(sample_indexes)
         now_info = self.data[index]
-        img = self._get_image(now_info)
+        img = self._get_image(now_info) # 获取图片
         if self.mode != 'train':
             image = self.transform(img)
-        else:
-            image = self.transform[0](img)
-        meta = dict({'image_id': index})
-        image_label = now_info['category_id']
+        else:   # 训练阶段进
+            image = self.transform[0](img)  # 预处理，将NumPy数组转换成Tensor张量
+        meta = dict({'image_id': index})    # 图片ID，第1370张训练图片
+        image_label = now_info['category_id']   # 图片类别标签：2
         return image, image_label, meta
 
 class MULTI_NETWORK_CIFAR_MOCO_AUGPLIS(BaseSet):

@@ -3,17 +3,17 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-class AverageMeter(object):
+class AverageMeter(object): # 计算并储存平均精度和当前精度
     """Computes and stores the average and current value"""
 
     def __init__(self):
-        self.reset()
+        self.reset()    # 一初始化就全部置零
 
     def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
+        self.val = 0    # 当前值
+        self.avg = 0    # 平均值
+        self.sum = 0    # 总和
+        self.count = 0  # 计数
 
     def update(self, val, n=1):
         self.val = val
@@ -22,7 +22,7 @@ class AverageMeter(object):
         self.avg = self.sum / self.count if self.count != 0 else 0
 
 
-class FusionMatrix(object):
+class FusionMatrix(object): # 混淆矩阵
     def __init__(self, num_classes):
         self.num_classes = num_classes
         self.reset()
@@ -100,7 +100,7 @@ class FusionMatrix(object):
         return fig
 
 
-def accuracy(output, label):
+def accuracy(output, label): # 计算准确率
     cnt = label.shape[0]
     true_count = (output == label).sum()
     now_accuracy = true_count / cnt

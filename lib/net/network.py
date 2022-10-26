@@ -33,22 +33,22 @@ class Cos_Classifier(nn.Module):
         out = torch.mm(ex, self.scale * ew.t()) + self.bias
         return out
 
-class multi_Network(nn.Module):
+class multi_Network(nn.Module): # 多网络模型
     def __init__(self, cfg, mode="train", num_classes=1000, use_dropout=False):
         super(multi_Network, self).__init__()
-        pretrain = (
+        pretrain = ( # 是否预训练
             True
             if mode == "train"
                and cfg.BACKBONE.PRETRAINED_MODEL != ""
             else False
         )
 
-        self.num_classes = num_classes
-        self.cfg = cfg
-        self.network_num = len(self.cfg.BACKBONE.MULTI_NETWORK_TYPE)
-        self.use_dropout = use_dropout
+        self.num_classes = num_classes # 类别总数100
+        self.cfg = cfg # 配置文件参数
+        self.network_num = len(self.cfg.BACKBONE.MULTI_NETWORK_TYPE) # 采用3个ResNet32训练，分别对应3个专家
+        self.use_dropout = use_dropout # 是否使用dropout
 
-        if pretrain:
+        if pretrain: # 不预训练不进
 
             self.backbone = nn.ModuleList(
                 eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(
@@ -56,26 +56,26 @@ class multi_Network(nn.Module):
                     last_layer_stride=2,
                     pretrained_model=cfg.BACKBONE.PRETRAINED_MODEL
                 ) for i in range(self.network_num))
-        else:
+        else: # 不预训练进
 
-            self.backbone = nn.ModuleList(
+            self.backbone = nn.ModuleList(  # 设置BackBone网络
                 eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(
                     self.cfg,
                     last_layer_stride=2,
                 ) for i in range(self.network_num))
 
-        self.module = nn.ModuleList(
+        self.module = nn.ModuleList( # 生成3个全局平均池化层的ModuleList
             self._get_module()
             for i in range(self.network_num))
 
-        if self.use_dropout:
+        if self.use_dropout:    # 不使用dropout不进
             self.dropout = nn.ModuleList(
                 nn.Dropout(p=0.5)
                 for i in range(self.network_num))
 
-        self.classifier = nn.ModuleList(
-            self._get_multi_classifer(cfg.CLASSIFIER.BIAS, cfg.CLASSIFIER.TYPE)
-            for i in range(self.network_num))
+        self.classifier = nn.ModuleList( # 获取多分类器(全连接层)
+            self._get_multi_classifer(cfg.CLASSIFIER.BIAS, cfg.CLASSIFIER.TYPE) # 获取多分类器，传入是否有bias和分类器类型(全连接层)
+            for i in range(self.network_num)) # 获取3次
 
     def forward(self, input, **kwargs):
 
@@ -154,33 +154,33 @@ class multi_Network(nn.Module):
         self.load_state_dict(model_dict)
         print("All model has been loaded...")
 
-    def get_feature_length(self):
+    def get_feature_length(self): # 获取特征长度
         if "cifar" in self.cfg.BACKBONE.TYPE:
-            num_features = 64
+            num_features = 64 # CIFAR的backbone怎么计算出有64个特征图的？
         elif 'res10' in self.cfg.BACKBONE.TYPE:
             num_features = 512
         else:
             num_features = 2048
         return num_features
 
-    def _get_module(self):
+    def _get_module(self): # 获取全局平均池化或恒等模型
         module_type = self.cfg.MODULE.TYPE
-        if module_type == "GAP":
+        if module_type == "GAP":   # 全局平均池化
             module = GAP()
-        elif module_type == "Identity":
+        elif module_type == "Identity": # 恒等函数
             module = Identity()
         else:
             raise NotImplementedError
 
         return module
 
-    def _get_multi_classifer(self, bias_flag, type):
+    def _get_multi_classifer(self, bias_flag, type): # 获取分类器
 
-        num_features = self.get_feature_length()
+        num_features = self.get_feature_length() # 获取backbone特征总数，ResNet32特征图总数为64
         if type == "FCNorm":
             classifier = FCNorm(num_features, self.num_classes)
-        elif type == "FC":
-            classifier = nn.Linear(num_features, self.num_classes, bias=bias_flag)
+        elif type == "FC":  # 全连接层进
+            classifier = nn.Linear(num_features, self.num_classes, bias=bias_flag) # 全连接层入是[64,1]，输出形状是[100,1]
         elif type == 'cos':
             classifier = Cos_Classifier(self.num_classes, num_features, scale=self.cfg.CLASSIFIER.COS_SCALE, bias=bias_flag)
         else:

@@ -1,37 +1,35 @@
-
 import torch, math
 from core.evaluate import accuracy
 from torch.nn import functional as F
 from net.MOCO import shuffle_BN, shuffle_BN_DDP, unshuffle_BN_DDP, unshuffle_BN
 
-class Combiner:
-    def __init__(self, cfg, device, num_class_list=None):
-        self.cfg = cfg
-        self.type = cfg.TRAIN.COMBINER.TYPE
-        self.device = device
-        self.num_class_list = torch.FloatTensor(num_class_list)
-        self.epoch_number = cfg.TRAIN.MAX_EPOCH
-        self.initilize_all_parameters()
 
-    def initilize_all_parameters(self):
+class Combiner: # 组合器
+    def __init__(self, cfg, device, num_class_list=None): # 入参:配置文件参数cfg、GPU、每类样本数{list:100}
+        self.cfg = cfg # 配置文件参数cfg
+        self.type = cfg.TRAIN.COMBINER.TYPE # 训练结合模式：默认
+        self.device = device # GPU
+        self.num_class_list = torch.FloatTensor(num_class_list) # 每类样本数{list:100}转换成{Tensor:(100,)}
+        self.epoch_number = cfg.TRAIN.MAX_EPOCH # 训练epoch：400
+        self.initilize_all_parameters() # 初始化所有参数
 
-        self.CON_ratio = self.cfg.LOSS.CON_RATIO
-        self.show_step = self.cfg.SHOW_STEP
-        self.distributed = self.cfg.TRAIN.DISTRIBUTED
+    def initilize_all_parameters(self): # 初始化所有参数
 
-        print('_'*100)
-        print('combiner type: ', self.type)
-        print('_'*100)
+        self.CON_ratio = self.cfg.LOSS.CON_RATIO # 没懂？0.0
+        self.show_step = self.cfg.SHOW_STEP # 每100个mini-batch打印一次训练实况
+        self.distributed = self.cfg.TRAIN.DISTRIBUTED   # 是否DDP？否
+
+        print('_' * 100) # 分割线
+        print('combiner type: ', self.type) # 打印训练组合模式：默认
+        print('_' * 100) # 分割线
 
     def update(self, epoch):
         self.epoch = epoch
-
 
     def forward(self, model, criterion, image, label, meta, **kwargs):
         return eval("self.{}".format(self.type))(
             model, criterion, image, label, meta, **kwargs
         )
-
 
     def multi_network_default(self, model, criterion, image, label, meta, **kwargs):
 
@@ -106,7 +104,6 @@ class Combiner:
                 model.module.MOCO[i]._dequeue_and_enqueue_DDP(k)
             else:
                 model.module.MOCO[i]._dequeue_and_enqueue(k)
-
 
             loss_CON += F.cross_entropy(logits, labels)
 
