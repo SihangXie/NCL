@@ -26,6 +26,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
+import numpy as np
+
+
 def _weights_init(m):
     classname = m.__class__.__name__
     if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
@@ -82,14 +85,14 @@ class BasicBlock(nn.Module):
                 )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
+        out = F.relu(self.bn1(self.conv1(x)))  # 32+2-3+1=32尺寸不变{Tensor:(4,16,32,32)}
+        out = self.bn2(self.conv2(out))  # 32+2-3+1=32尺寸不变{Tensor:(4,16,32,32)}
+        out += self.shortcut(x)  # ResNet的融合输入x
         out = F.relu(out)
         return out
 
 
-class ResNet_Cifar(nn.Module):
+class ResNet_Cifar(nn.Module):  # CIFAR的backbone
     def __init__(self, block, num_blocks):
         super(ResNet_Cifar, self).__init__()
         self.in_planes = 16
@@ -130,23 +133,25 @@ class ResNet_Cifar(nn.Module):
         print("Backbone model has been loaded......")
 
     def forward(self, x, **kwargs):
+        # TODO 此处加入网络深度提取融合模块SHIKE
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer1':
-            out = kwargs['coef']*out + (1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         out = self.layer2(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer2':
-            out = kwargs['coef']*out+(1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         out = self.layer3(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer3':
-            out = kwargs['coef']*out+(1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         return out
 
+
 def res32_cifar(
-    cfg,
-    pretrain=True,
-    pretrained_model="",
-    last_layer_stride=2,
+        cfg,
+        pretrain=True,
+        pretrained_model="",
+        last_layer_stride=2,
 ):
     resnet = ResNet_Cifar(BasicBlock, [5, 5, 5])
     if pretrain and pretrained_model != "":

@@ -8,6 +8,7 @@ from PIL import ImageFilter
 from dataset.autoaug import CIFAR10Policy, Cutout
 import random
 
+
 class GaussianBlur(object):
     """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
 
@@ -18,6 +19,7 @@ class GaussianBlur(object):
         sigma = random.uniform(self.sigma[0], self.sigma[1])
         x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
         return x
+
 
 def aug_plus(aug_comb='cifar100', mode='train', plus_plus='False'):
     # PaCo's aug: https://github.com/jiequancui/Parametric-Contrastive-Learning
@@ -38,7 +40,7 @@ def aug_plus(aug_comb='cifar100', mode='train', plus_plus='False'):
             transforms.ToTensor(),
             normalize
         ]
-    else:
+    else:  # CIFAR进，MoCo v1的数据增强
         # MoCo v1's aug: the same as InstDisc https://arxiv.org/abs/1805.01978
         augmentation = [
             transforms.ToPILImage(),
@@ -50,7 +52,7 @@ def aug_plus(aug_comb='cifar100', mode='train', plus_plus='False'):
             normalize
         ]
 
-    augmentation_regular = [
+    augmentation_regular = [  # 数据增强的正则化
         transforms.ToPILImage(),
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
@@ -74,7 +76,6 @@ def aug_plus(aug_comb='cifar100', mode='train', plus_plus='False'):
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ]
 
-
     val_transform = transforms.Compose([
         transforms.ToPILImage(),
         transforms.ToTensor(),
@@ -94,21 +95,22 @@ def aug_plus(aug_comb='cifar100', mode='train', plus_plus='False'):
     else:
         return val_transform
 
-class MULTI_NETWORK_CIFAR_AUGPLIS(BaseSet):
-    def __init__(self, mode = 'train', cfg = None, sample_id = 0, transform = None):
+
+# CIFAR数据集类
+class MULTI_NETWORK_CIFAR_AUGPLIS(BaseSet):  # 继承了BaseSet
+    def __init__(self, mode='train', cfg=None, sample_id=0, transform=None):
         super().__init__(mode, cfg, transform)
-        self.sample_id = sample_id
-        self.sample_type = cfg.TRAIN.SAMPLER.MULTI_NETWORK_TYPE[sample_id]
-        self.class_dict = self._get_class_dict()
+        self.sample_id = sample_id  # 样本ID=0指的是下面的样本类型列表里第一个['default']
+        self.sample_type = cfg.TRAIN.SAMPLER.MULTI_NETWORK_TYPE[sample_id]  # 采样类型：default
+        self.class_dict = self._get_class_dict()  # 获取各类样本分布字典，这个方法是从父类BaseSet继承过来的
 
-        self.transform = aug_plus(aug_comb='cifar100', mode=mode, plus_plus='False')
+        self.transform = aug_plus(aug_comb='cifar100', mode=mode, plus_plus='False')  # 一些自监督的数据增强方法
 
-
-        if mode == 'train':
-            if 'weighted' in self.sample_type:
+        if mode == 'train':  # 训练时进
+            if 'weighted' in self.sample_type:  # 采样类型是weighted才进
                 self.class_weight, self.sum_weight = self.get_weight(self.data, self.num_classes)
                 print('-' * 20 + ' dataset' + '-' * 20)
-                print('multi_network: %d class_weight is (the first 10 classes): '%sample_id)
+                print('multi_network: %d class_weight is (the first 10 classes): ' % sample_id)
                 print(self.class_weight[:10])
 
                 num_list, cat_list = get_category_list(self.get_annotations(), self.num_classes, self.cfg)
@@ -124,7 +126,7 @@ class MULTI_NETWORK_CIFAR_AUGPLIS(BaseSet):
     def update(self, epoch):
         self.epoch = epoch
         if self.sample_type == "weighted_progressive":
-            self.progress_p = epoch/self.cfg.TRAIN.MAX_EPOCH * self.class_p + (1-epoch/self.cfg.TRAIN.MAX_EPOCH)*self.instance_p
+            self.progress_p = epoch / self.cfg.TRAIN.MAX_EPOCH * self.class_p + (1 - epoch / self.cfg.TRAIN.MAX_EPOCH) * self.instance_p
             print('self.progress_p', self.progress_p)
 
     def __getitem__(self, index):
@@ -140,32 +142,33 @@ class MULTI_NETWORK_CIFAR_AUGPLIS(BaseSet):
             sample_indexes = self.class_dict[sample_class]
             index = random.choice(sample_indexes)
         now_info = self.data[index]
-        img = self._get_image(now_info) # 获取图片
+        img = self._get_image(now_info)  # 获取图片
         if self.mode != 'train':
             image = self.transform(img)
-        else:   # 训练阶段进
+        else:  # 训练阶段进
             image = self.transform[0](img)  # 预处理，将NumPy数组转换成Tensor张量
-        meta = dict({'image_id': index})    # 图片ID，第1370张训练图片
-        image_label = now_info['category_id']   # 图片类别标签：2
+        meta = dict({'image_id': index})  # 图片ID，第1370张训练图片
+        image_label = now_info['category_id']  # 图片类别标签：2
         return image, image_label, meta
 
+
 class MULTI_NETWORK_CIFAR_MOCO_AUGPLIS(BaseSet):
-    def __init__(self, mode = 'train', cfg = None, sample_id = 0, transform = None):
+    def __init__(self, mode='train', cfg=None, sample_id=0, transform=None):
         super().__init__(mode, cfg, transform)
-        self.sample_id = sample_id
+        self.sample_id = sample_id  # 样本ID
         self.sample_type = cfg.TRAIN.SAMPLER.MULTI_NETWORK_TYPE[sample_id]
-        self.network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)
-        self.mode = mode
+        self.network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)  # 专家数量
+        self.mode = mode  # 模式：训练or验证
 
         # strong augmentation. remove it you will get weak augmentation which is defined in BaseSet.update_transform() .
-        self.transform = aug_plus(aug_comb='cifar100', mode=mode, plus_plus='False')
+        self.transform = aug_plus(aug_comb='cifar100', mode=mode, plus_plus='False')  # 数据增强
 
-        self.class_dict = self._get_class_dict()
+        self.class_dict = self._get_class_dict()  # 获取每类样本ID字典
         if mode == 'train':
             if 'weighted' in self.sample_type:
                 self.class_weight, self.sum_weight = self.get_weight(self.data, self.num_classes)
                 print('-' * 20 + ' dataset' + '-' * 20)
-                print('multi_network: %d class_weight is (the first 10 classes): '%sample_id)
+                print('multi_network: %d class_weight is (the first 10 classes): ' % sample_id)
                 print(self.class_weight[:10])
 
                 num_list, cat_list = get_category_list(self.get_annotations(), self.num_classes, self.cfg)
@@ -181,8 +184,8 @@ class MULTI_NETWORK_CIFAR_MOCO_AUGPLIS(BaseSet):
     def update(self, epoch):
         self.epoch = epoch
         if self.sample_type == "weighted_progressive":
-            self.progress_p = epoch/self.cfg.TRAIN.MAX_EPOCH * self.class_p + (1-epoch/self.cfg.TRAIN.MAX_EPOCH)*self.instance_p
-            #print('self.progress_p', self.progress_p)
+            self.progress_p = epoch / self.cfg.TRAIN.MAX_EPOCH * self.class_p + (1 - epoch / self.cfg.TRAIN.MAX_EPOCH) * self.instance_p
+            # print('self.progress_p', self.progress_p)
 
     def __getitem__(self, index):
         if 'weighted' in self.sample_type \

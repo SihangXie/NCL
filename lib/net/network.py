@@ -33,22 +33,23 @@ class Cos_Classifier(nn.Module):
         out = torch.mm(ex, self.scale * ew.t()) + self.bias
         return out
 
-class multi_Network(nn.Module): # 多网络模型
+
+class multi_Network(nn.Module):  # 多网络模型，CIFAR进
     def __init__(self, cfg, mode="train", num_classes=1000, use_dropout=False):
         super(multi_Network, self).__init__()
-        pretrain = ( # 是否预训练
+        pretrain = (  # 是否预训练
             True
             if mode == "train"
                and cfg.BACKBONE.PRETRAINED_MODEL != ""
             else False
         )
 
-        self.num_classes = num_classes # 类别总数100
-        self.cfg = cfg # 配置文件参数
-        self.network_num = len(self.cfg.BACKBONE.MULTI_NETWORK_TYPE) # 采用3个ResNet32训练，分别对应3个专家
-        self.use_dropout = use_dropout # 是否使用dropout
+        self.num_classes = num_classes  # 类别总数100
+        self.cfg = cfg  # 配置文件参数
+        self.network_num = len(self.cfg.BACKBONE.MULTI_NETWORK_TYPE)  # 采用3个ResNet32训练，分别对应3个专家
+        self.use_dropout = use_dropout  # 是否使用dropout
 
-        if pretrain: # 不预训练不进
+        if pretrain:  # 预训练进
 
             self.backbone = nn.ModuleList(
                 eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(
@@ -56,31 +57,31 @@ class multi_Network(nn.Module): # 多网络模型
                     last_layer_stride=2,
                     pretrained_model=cfg.BACKBONE.PRETRAINED_MODEL
                 ) for i in range(self.network_num))
-        else: # 不预训练进
+        else:  # 不预训练进
 
             self.backbone = nn.ModuleList(  # 设置BackBone网络
-                eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(
-                    self.cfg,
-                    last_layer_stride=2,
-                ) for i in range(self.network_num))
+                eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(  # {list:3}['res32_cifar','res32_cifar','res32_cifar']
+                    self.cfg,  # 入参1：配置信息
+                    last_layer_stride=2,  # 入参2：最后一层的步进？设置为2
+                ) for i in range(self.network_num))  # 循环3次创建3个backbone网络
 
-        self.module = nn.ModuleList( # 生成3个全局平均池化层的ModuleList
+        self.module = nn.ModuleList(  # 生成3个全局平均池化层的ModuleList
             self._get_module()
             for i in range(self.network_num))
 
-        if self.use_dropout:    # 不使用dropout不进
+        if self.use_dropout:  # 不使用dropout不进
             self.dropout = nn.ModuleList(
                 nn.Dropout(p=0.5)
                 for i in range(self.network_num))
 
-        self.classifier = nn.ModuleList( # 获取多分类器(全连接层)
-            self._get_multi_classifer(cfg.CLASSIFIER.BIAS, cfg.CLASSIFIER.TYPE) # 获取多分类器，传入是否有bias和分类器类型(全连接层)
-            for i in range(self.network_num)) # 获取3次
+        self.classifier = nn.ModuleList(  # 获取多分类器(全连接层)
+            self._get_multi_classifer(cfg.CLASSIFIER.BIAS, cfg.CLASSIFIER.TYPE)  # 获取多分类器，传入是否有bias和分类器类型(全连接层)
+            for i in range(self.network_num))  # 获取3次
 
-    def forward(self, input, **kwargs):
+    def forward(self, input, **kwargs):  # 前向传播：输入是三份相同的图片batch{list:3}
 
-        if "feature_flag" in kwargs:
-            return self.extract_feature(input, **kwargs)
+        if "feature_flag" in kwargs:  # 如果可变形参里有feature_flag这个参数
+            return self.extract_feature(input, **kwargs)  # 调用下面的extract_feature()方法，返回图片的特征
         elif "classifier_flag" in kwargs:
             return self.get_logits(input, **kwargs)
 
@@ -97,11 +98,11 @@ class multi_Network(nn.Module): # 多网络模型
 
         return logits
 
-    def extract_feature(self, input, **kwargs):
+    def extract_feature(self, input, **kwargs):  # 提取特征
 
-        feature = []
-        for i in range(self.network_num):
-            x = (self.backbone[i])(input[i])
+        feature = []  # 构造空列表存放特征{list:0}
+        for i in range(self.network_num):  # 有3个专家就循环3次
+            x = (self.backbone[i])(input[i])  # 把一个batch的图片输入backbone网络中
             x = (self.module[i])(x)
             x = x.view(x.shape[0], -1)
             feature.append(x)
@@ -110,12 +111,12 @@ class multi_Network(nn.Module): # 多网络模型
 
     def get_logits(self, input, **kwargs):
 
-        logits = []
+        logits = []  # 创建空logits列表，用来存放logits
         for i in range(self.network_num):
             x = input[i]
-            if self.use_dropout:
+            if self.use_dropout:  # 使用Dropout进
                 x = (self.dropout[i])(x)
-            x = (self.classifier[i])(x)
+            x = (self.classifier[i])(x)  # 经过分类器，即Linear+softmax之后的向量就叫logits
             logits.append(x)
 
         return logits
@@ -154,39 +155,41 @@ class multi_Network(nn.Module): # 多网络模型
         self.load_state_dict(model_dict)
         print("All model has been loaded...")
 
-    def get_feature_length(self): # 获取特征长度
+    def get_feature_length(self):  # 获取特征长度
         if "cifar" in self.cfg.BACKBONE.TYPE:
-            num_features = 64 # CIFAR的backbone怎么计算出有64个特征图的？
+            num_features = 64  # CIFAR的backbone怎么计算出有64个特征图的？
         elif 'res10' in self.cfg.BACKBONE.TYPE:
             num_features = 512
         else:
             num_features = 2048
         return num_features
 
-    def _get_module(self): # 获取全局平均池化或恒等模型
+    def _get_module(self):  # 获取全局平均池化或恒等模型
         module_type = self.cfg.MODULE.TYPE
-        if module_type == "GAP":   # 全局平均池化
+        if module_type == "GAP":  # 全局平均池化
             module = GAP()
-        elif module_type == "Identity": # 恒等函数
+        elif module_type == "Identity":  # 恒等函数
             module = Identity()
         else:
             raise NotImplementedError
 
         return module
 
-    def _get_multi_classifer(self, bias_flag, type): # 获取分类器
+    def _get_multi_classifer(self, bias_flag, type):  # 获取分类器
 
-        num_features = self.get_feature_length() # 获取backbone特征总数，ResNet32特征图总数为64
+        num_features = self.get_feature_length()  # 获取backbone特征总数，ResNet32特征图总数为64
         if type == "FCNorm":
             classifier = FCNorm(num_features, self.num_classes)
         elif type == "FC":  # 全连接层进
-            classifier = nn.Linear(num_features, self.num_classes, bias=bias_flag) # 全连接层入是[64,1]，输出形状是[100,1]
+            classifier = nn.Linear(num_features, self.num_classes, bias=bias_flag)  # 全连接层入是[64,1]，输出形状是[100,1]
         elif type == 'cos':
-            classifier = Cos_Classifier(self.num_classes, num_features, scale=self.cfg.CLASSIFIER.COS_SCALE, bias=bias_flag)
+            classifier = Cos_Classifier(self.num_classes, num_features, scale=self.cfg.CLASSIFIER.COS_SCALE,
+                                        bias=bias_flag)
         else:
             raise NotImplementedError
 
         return classifier
+
 
 class multi_Network_MOCO(nn.Module):
     def __init__(self, cfg, mode="train", num_classes=1000, use_dropout=False):
@@ -204,7 +207,7 @@ class multi_Network_MOCO(nn.Module):
         self.network_num = len(self.cfg.BACKBONE.MULTI_NETWORK_TYPE)
         self.use_dropout = use_dropout
 
-        if self.cfg.NETWORK.MOCO:
+        if self.cfg.NETWORK.MOCO:  # 创建3个对比学习MOCO模块
             self.MOCO = nn.ModuleList(
                 MoCo(dim=cfg.NETWORK.MOCO_DIM, K=cfg.NETWORK.MOCO_K, T=cfg.NETWORK.MOCO_T)
                 for i in range(self.network_num))
@@ -225,7 +228,7 @@ class multi_Network_MOCO(nn.Module):
                     last_layer_stride=2,
                 ) for i in range(self.network_num))
 
-        self.module = nn.ModuleList(
+        self.module = nn.ModuleList(  # 创建全局平均池化层
             self._get_module()
             for i in range(self.network_num))
 
@@ -234,7 +237,7 @@ class multi_Network_MOCO(nn.Module):
                 nn.Dropout(p=0.5)
                 for i in range(self.network_num))
 
-        self.classifier = nn.ModuleList(
+        self.classifier = nn.ModuleList(  # 创建的分类器2层线性层夹一层ReLU
             self._get_multi_classifer(cfg.CLASSIFIER.BIAS, cfg.CLASSIFIER.SEMI_TYPE)
             for i in range(self.network_num))
         self.feat = []
@@ -247,22 +250,22 @@ class multi_Network_MOCO(nn.Module):
                     pretrained_model=cfg.BACKBONE.PRETRAINED_MODEL
                 ) for i in range(self.network_num))
         else:
-            self.backbone_MA = nn.ModuleList(
+            self.backbone_MA = nn.ModuleList(  # 用来自监督训练的滑动平均模型
                 eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(
                     self.cfg,
                     last_layer_stride=2,
                 ) for i in range(self.network_num))
 
         for i in range(self.network_num):
-            for param in self.backbone_MA[i].parameters():
-                param.detach_()
+            for param in self.backbone_MA[i].parameters():  # 把自监督学习滑动平均模型的梯度流截断
+                param.detach_()  # 截断梯度流，不会再计算往后的梯度
 
-        self.module_MA = nn.ModuleList(
+        self.module_MA = nn.ModuleList(  # 自监督学习滑动平均模型的GAP层
             self._get_module()
             for i in range(self.network_num))
         for i in range(self.network_num):
             for param in self.module_MA[i].parameters():
-                param.detach_()
+                param.detach_()  # 把自监督学习滑动平均模型的GAP层的梯度流截断
 
         if self.use_dropout:
             self.dropout_MA = nn.ModuleList(
@@ -272,29 +275,29 @@ class multi_Network_MOCO(nn.Module):
                 for param in self.dropout_MA[i].parameters():
                     param.detach_()
 
-        self.classifier_MA = nn.ModuleList(
+        self.classifier_MA = nn.ModuleList(  # 创建自监督学习滑动平均模型的分类器
             self._get_multi_classifer(cfg.CLASSIFIER.BIAS, cfg.CLASSIFIER.SEMI_TYPE)
             for i in range(self.network_num))
         for i in range(self.network_num):
             for param in self.classifier_MA[i].parameters():
-                param.detach_()
+                param.detach_()  # 把自监督学习滑动平均模型的分类器的梯度流截断
         self.feat_MA = []
 
         if cfg.CLASSIFIER.TYPE == 'FC':
-            self.classifier_ce = nn.ModuleList(
+            self.classifier_ce = nn.ModuleList(  # 交叉熵损失的分类器
                 nn.Linear(self.get_feature_length(), self.num_classes, cfg.CLASSIFIER.BIAS)
                 for i in range(self.network_num))
         elif cfg.CLASSIFIER.TYPE == 'cos':
             self.classifier_ce = nn.ModuleList(
-                Cos_Classifier(self.num_classes, in_dim=self.get_feature_length(), scale=cfg.CLASSIFIER.COS_SCALE, bias=True)
+                Cos_Classifier(self.num_classes, in_dim=self.get_feature_length(), scale=cfg.CLASSIFIER.COS_SCALE,
+                               bias=True)
                 for i in range(self.network_num))
 
     def forward(self, input, **kwargs):
 
-
-        if "feature_flag" in kwargs:
+        if "feature_flag" in kwargs:  # 特征提取
             return self.extract_feature(input, **kwargs)
-        elif "classifier_flag" in kwargs:
+        elif "classifier_flag" in kwargs:  # 分类器学习
             return self.get_logits(input, **kwargs)
 
         logits = []
@@ -332,13 +335,13 @@ class multi_Network_MOCO(nn.Module):
 
         feature = []
         for i in range(self.network_num):
-            x = (self.backbone[i])(input[i], label=kwargs['label'][i])
-            x = (self.module[i])(x)
-            x = x.view(x.shape[0], -1)
-            feature.append(x)
+            x = (self.backbone[i])(input[i], label=kwargs['label'][i])  # ResNet骨干网络，得到特征图
+            x = (self.module[i])(x)  # 全局平均池化层，得到(bs, 64, 1, 1)
+            x = x.view(x.shape[0], -1)  # 重塑成(bs, 64)
+            feature.append(x)  # 每个专家的特征输出存入feature列表中，可以发现每个专家对同一批输入计算的特征图不一样
 
         feature_MA = []
-        for i in range(self.network_num):
+        for i in range(self.network_num):  # 用于自监督学习的临时滑动平均模型
             x = (self.backbone_MA[i])(input_MA[i], label=kwargs['label'][i])
             x = (self.module_MA[i])(x)
             x = x.view(x.shape[0], -1)
@@ -355,10 +358,10 @@ class multi_Network_MOCO(nn.Module):
             if self.use_dropout:
                 feature = (self.dropout[i])(feature)
 
-            output = (self.classifier[i])(feature)
+            output = (self.classifier[i])(feature)  # 经过2个(64, 64)的线性层
             logits.append(output)
 
-            output_ce = (self.classifier_ce[i])(feature)
+            output_ce = (self.classifier_ce[i])(feature)  # 经过1个(64, 100)的线性层，得到最终的分类得分
             logits_ce.append(output_ce)
 
         logits_MA = []
@@ -366,10 +369,10 @@ class multi_Network_MOCO(nn.Module):
             x = input_MA[i]
             if self.use_dropout:
                 x = (self.dropout_MA[i])(x)
-            x = (self.classifier_MA[i])(x)
+            x = (self.classifier_MA[i])(x)  # 自监督学习的分类器经过2个(64, 64)的线性层
             logits_MA.append(x)
 
-        return logits_ce, logits, logits_MA
+        return logits_ce, logits, logits_MA  # 返回正常模型形状为(64, 100)、(64, 64)的logits和自监督模型形状为(64, 64)的logits
 
     def extract_feature_maps(self, x):
         x = self.backbone(x)

@@ -1,51 +1,51 @@
 from core.evaluate import accuracy, AverageMeter
 import torch
 import time
+import numpy as np
 
 
-def multi_networks_train_model( # 多专家网络训练器
+def multi_networks_train_model(  # 多专家网络训练器
         trainLoader, model, epoch, epoch_number, optimizer, combiner, criterion, cfg, logger, rank=0, **kwargs
 ):
-    if cfg.EVAL_MODE:   # 验证阶段进
+    if cfg.EVAL_MODE:  # 验证阶段进
         model.eval()
-    else:               # 训练阶段进
+    else:  # 训练阶段进
         model.train()
 
-    network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)  # 专家数量3
-    trainLoader.dataset.update(epoch)   # 此方法可以实现渐进式调整训练集
-    combiner.update(epoch)          # 此方法可以实现渐进式调整组合器
-    criterion.update(epoch)         # 此方法可以实现渐进式调整损失函数
+    network_num = len(cfg.BACKBONE.MULTI_NETWORK_TYPE)  # 专家数量：3
+    trainLoader.dataset.update(epoch)  # 此方法可以实现渐进式调整训练集
+    combiner.update(epoch)  # 此方法可以实现渐进式调整组合器
+    criterion.update(epoch)  # 此方法可以实现渐进式调整损失函数
 
-    start_time = time.time()    # 记录开始训练时间毫秒数
-    number_batch = len(trainLoader) # 计算一个epoch一共有多少批mini-batch：10847/4≈2711
+    start_time = time.time()  # 记录开始训练时间毫秒数
+    number_batch = len(trainLoader)  # 计算一个epoch一共有多少批mini-batch：10847/4≈2711
 
-    all_loss = AverageMeter()   # 实例化平均损失函数计算器
-    acc = AverageMeter()        # 实例化准确率
+    all_loss = AverageMeter()  # 实例化平均损失函数计算器
+    acc = AverageMeter()  # 实例化准确率
     for i, (image, label, meta) in enumerate(trainLoader):  # 应该要循环2711次吧
-
-        image_list = [image] * network_num  # 图片batch复制成3份{Tensor:(4,3,32,32)}的列表{list:3}
+        # 由于采用了自监督策略，此处image会得到2份图片，是同一批图片经过两个transform得来的
+        image_list = [image] * network_num  # 图片batch复制成3份相同的{Tensor:(4,3,32,32)}的列表{list:3}
         label_list = [label] * network_num  # 标签batch同上复制成了3份{Tensor:(4,)}的列表{list:3}
-        meta_list = [meta] * network_num    # 元数据batch复制成3份{dict:1}字典的列表{list:3}
+        meta_list = [meta] * network_num  # 元数据batch复制成3份{dict:1}字典的列表{list:3}
 
-        cnt = label_list[0].shape[0]    # 获取标签列表第0个批量张量维度的第0个维度：4
+        cnt = label_list[0].shape[0]  # 获取标签列表第0个批量张量维度的第0个维度：batch_size
 
-        optimizer.zero_grad()   # 梯度清零
-
+        optimizer.zero_grad()  # 梯度清零
         loss, now_acc = combiner.forward(model, criterion, image_list, label_list, meta_list, now_epoch=epoch,
                                          train=True, cfg=cfg, iteration=i, log=logger,
-                                         class_list=criterion.num_class_list)
+                                         class_list=criterion.num_class_list)  # 把三份图片、三份标签、三份图片ID传入结合器的multi_network_default()方法
 
-        if cfg.NETWORK.MOCO:    # CIFAR不进
-            alpha = cfg.NETWORK.MA_MODEL_ALPHA
+        if cfg.NETWORK.MOCO:  # CIFAR不进
+            alpha = cfg.NETWORK.MA_MODEL_ALPHA  # α是什么？
             for net_id in range(network_num):
                 net = ['backbone', 'module']
                 for name in net:
                     for ema_param, param in zip(eval('model.module.' + name + '_MA').parameters(),
                                                 eval('model.module.' + name).parameters()):
-                        ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
+                        ema_param.data.mul_(alpha).add_(1 - alpha, param.data)  # 指数滑动平均模型的参数保留0.999，新参数只保留0.001
 
-        loss.backward()
-        optimizer.step()
+        loss.backward()  # 反向传播
+        optimizer.step()  # 更新模型参数
         all_loss.update(loss.data.item(), cnt)
         acc.update(now_acc, cnt)
 

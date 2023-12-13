@@ -1,18 +1,18 @@
 NAME: 'NCL'
 #OUTPUT_DIR: '/media/ssd1/lijun/output/NCL'
-OUTPUT_DIR: '/home/og/XieSH/xsh/NCL/output'  # 日志输出目录
-SHOW_STEP: 100
-SAVE_STEP: 100
+OUTPUT_DIR: '/home/og/XieSH/output/PMID2019'  # 日志输出目录
+SHOW_STEP: 200
+SAVE_STEP: 50
 VALID_STEP: 1
-INPUT_SIZE: (32, 32)
+INPUT_SIZE: (224, 224)  # 输入尺寸，会resize吗？
 COLOR_SPACE: 'RGB'
 
 DATASET:
-  DATASET: 'MULTI_NETWORK_CIFAR_AUGPLIS'  # 继承了Dataset的类名
+  DATASET: 'PMID2019' # 数据集的类，自定义的写在lib/dataset/others.py
   #TRAIN_JSON: '/media/ssd1/lijun/imbalance_cifar/converted/cifar100_imbalance100/cifar100_imbalance100_train.json'
-  TRAIN_JSON: '/home/og/XieSH/data/CIFAR-LT/converted/cifar100_imbalance100/cifar100_imbalance100_train.json' # 训练集JSON标注
+  TRAIN_JSON: '/home/og/XieSH/data/PMID2019/LongTailed/PMID2019_train.json' # 训练集JSON标注
   #VALID_JSON: '/media/ssd1/lijun/imbalance_cifar/converted/cifar100_imbalance100/cifar100_imbalance100_valid.json'
-  VALID_JSON: '/home/og/XieSH/data/CIFAR-LT/converted/cifar100_imbalance100/cifar100_imbalance100_valid.json' # 验证集JSON标注
+  VALID_JSON: '/home/og/XieSH/data/PMID2019/LongTailed/PMID2019_valid.json' # 验证集JSON标注
 
 NETWORK:
   MA_MODEL_ALPHA: 0.999
@@ -22,7 +22,7 @@ NETWORK:
   MOCO_DIM: 64
 BACKBONE:
   TYPE: 'res32_cifar'
-  MULTI_NETWORK_TYPE: [ 'res32_cifar','res32_cifar','res32_cifar' ]
+  MULTI_NETWORK_TYPE: ['res32_cifar','res32_cifar','res32_cifar']
 MODULE:
   TYPE: 'GAP'
 
@@ -44,11 +44,11 @@ LOSS:
   CON_RATIO: 0.0
 TRAIN:
 
-  BATCH_SIZE: 4
+  BATCH_SIZE: 64
   MAX_EPOCH: 400
-  NUM_WORKERS: 0
+  NUM_WORKERS: 56
   COMBINER:
-    TYPE: 'multi_network_default' # lib/core/combiner.py中的方法名
+    TYPE: 'multi_network_default'
   OPTIMIZER:
     TYPE: 'SGD'
     BASE_LR: 0.1
@@ -56,23 +56,23 @@ TRAIN:
     WEIGHT_DECAY: 2e-4
   LR_SCHEDULER:
     TYPE: 'warmup'
-    LR_STEP: [ 320,360 ]
+    LR_STEP: [320,360]
     LR_FACTOR: 0.1
     WARM_EPOCH: 5
   TENSORBOARD:
     ENABLE: True
   SAMPLER:
     TYPE: 'default'
-    MULTI_NETWORK_TYPE: [ 'default' ]
+    MULTI_NETWORK_TYPE: ['default']
 
   DISTRIBUTED: False
   SYNCBN: True
 
 TRANSFORMS:
-  TRAIN_TRANSFORMS: ('random_crop', 'random_horizontal_flip')
+  TRAIN_TRANSFORMS: ('random_resized_crop', 'random_horizontal_flip', "color_jitter")
   TEST_TRANSFORMS: ()
 
 TEST:
-  BATCH_SIZE: 256
-  NUM_WORKERS: 8
+  BATCH_SIZE: 64
+  NUM_WORKERS: 56
   MODEL_FILE: 'best_model.pth'

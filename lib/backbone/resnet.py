@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+import numpy as np
+
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -52,7 +54,6 @@ class BasicBlock(nn.Module):
 
 
 class BottleNeck(nn.Module):
-
     expansion = 4
 
     def __init__(self, inplanes, planes, stride=1):
@@ -99,14 +100,15 @@ class BottleNeck(nn.Module):
         out = self.relu(out)
         return out
 
+
 ##kaiming init missing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 class ResNet(nn.Module):
     def __init__(
-        self,
-        cfg,
-        block_type,
-        num_blocks,
-        last_layer_stride=2,
+            self,
+            cfg,
+            block_type,
+            num_blocks,
+            last_layer_stride=2,
     ):
         super(ResNet, self).__init__()
         self.inplanes = 64
@@ -168,23 +170,24 @@ class ResNet(nn.Module):
 
         out = self.layer1(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer1':
-            out = kwargs['coef']*out + (1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         out = self.layer2(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer2':
-            out = kwargs['coef']*out+(1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         out = self.layer3(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer3':
-            out = kwargs['coef']*out+(1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         out = self.layer4(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer4':
-            out = kwargs['coef']*out+(1-kwargs['coef'])*out[kwargs['index']]
+            out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
         return out
 
+
 def res50(
-    cfg,
-    pretrain=True,
-    pretrained_model="",
-    last_layer_stride=2,
+        cfg,
+        pretrain=True,
+        pretrained_model="",
+        last_layer_stride=2,
 ):
     resnet = ResNet(
         cfg,
@@ -198,11 +201,12 @@ def res50(
         print("Choose to train from scratch")
     return resnet
 
+
 def res152(
-    cfg,
-    pretrain=True,
-    pretrained_model="",
-    last_layer_stride=2,
+        cfg,
+        pretrain=True,
+        pretrained_model="",
+        last_layer_stride=2,
 ):
     resnet = ResNet(
         cfg,
@@ -215,6 +219,7 @@ def res152(
     else:
         print("Choose to train from scratch")
     return resnet
+
 
 if __name__ == "__main__":
     pass

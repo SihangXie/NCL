@@ -2,29 +2,32 @@
 import torch
 import torch.nn as nn
 
+
 @torch.no_grad()
 def concat_all_gather(tensor):
     """
     Performs all_gather operation on the provided tensors.
     *** Warning ***: torch.distributed.all_gather has no gradient.
     """
-    #with torch.no_grad():
+    # with torch.no_grad():
     tensors_gather = [torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())]
+                      for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
 
     output = torch.cat(tensors_gather, dim=0)
     return output
 
+
 @torch.no_grad()
 def shuffle_BN(image):
-    #with torch.no_grad():
+    # with torch.no_grad():
     batch_size = image[0].shape[0]
-    idx_shuffle = torch.randperm(batch_size).cuda()
-    for i in range(len(image)):
-        image[i] = image[i][idx_shuffle]
-    idx_unshuffle = torch.argsort(idx_shuffle)
+    idx_shuffle = torch.randperm(batch_size).cuda()  # 产生[0, bs)的随机排列
+    for i in range(len(image)):  # 把输入3个专家的三份图片按上述idx重新排序
+        image[i] = image[i][idx_shuffle]  # shuffle完三份还是一样的
+    idx_unshuffle = torch.argsort(idx_shuffle)  # 逆shuffle操作的索引
     return image, idx_unshuffle
+
 
 @torch.no_grad()
 def shuffle_BN_DDP(x):
@@ -34,7 +37,7 @@ def shuffle_BN_DDP(x):
     """
     # gather from all gpus
 
-    #with torch.no_grad():
+    # with torch.no_grad():
     shuffle_list = []
     idx_shuffle = 0
     for i in range(len(x)):
@@ -53,8 +56,6 @@ def shuffle_BN_DDP(x):
         # broadcast to all gpus
         torch.distributed.broadcast(idx_shuffle, src=0)
 
-
-
         # shuffled index for this gpu
         gpu_idx = torch.distributed.get_rank()
         idx_this = idx_shuffle.view(num_gpus, -1)[gpu_idx]
@@ -62,12 +63,14 @@ def shuffle_BN_DDP(x):
 
     return shuffle_list, idx_unshuffle
 
+
 @torch.no_grad()
 def unshuffle_BN(x, idx_unshuffle):
-    #with torch.no_grad():
+    # with torch.no_grad():
     for i in range(len(x)):
         x[i] = x[i][idx_unshuffle]
     return x
+
 
 @torch.no_grad()
 def unshuffle_BN_DDP(x, idx_unshuffle):
@@ -76,7 +79,7 @@ def unshuffle_BN_DDP(x, idx_unshuffle):
     *** Only support DistributedDataParallel (DDP) model. ***
     """
     # gather from all gpus
-   # with torch.no_grad():
+    # with torch.no_grad():
     unshuffle_list = []
     for i in range(len(x)):
         batch_size_this = x[i].shape[0]
@@ -92,11 +95,13 @@ def unshuffle_BN_DDP(x, idx_unshuffle):
 
     return unshuffle_list
 
+
 class MoCo(nn.Module):
     """
     Build a MoCo model with: a query encoder, a key encoder, and a queue
     https://arxiv.org/abs/1911.05722
     """
+
     def __init__(self, dim=128, K=65536, m=0.999, T=0.07):
         """
         dim: feature dimension (default: 128)
@@ -111,12 +116,10 @@ class MoCo(nn.Module):
         self.T = T
 
         # create the queue
-        self.register_buffer("queue", torch.randn(dim, K))
-        self.queue = nn.functional.normalize(self.queue, dim=0)
+        self.register_buffer("queue", torch.randn(dim, K))  # 创建张量形状为(64, 1024)的缓冲区作为队列
+        self.queue = nn.functional.normalize(self.queue, dim=0)  # 正则化
 
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
-
-
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))  # 队列指针
 
     @torch.no_grad()
     def _dequeue_and_enqueue_DDP(self, keys):
@@ -137,16 +140,15 @@ class MoCo(nn.Module):
 
     @torch.no_grad()
     def _dequeue_and_enqueue(self, keys, **kwargs):
-
         batch_size = keys.shape[0]
 
         ptr = int(self.queue_ptr)
 
-        assert self.K % batch_size == 0  # for simplicity
+        assert self.K % batch_size == 0  # for simplicity 确保队列长度是bs的整数倍
 
         # replace the keys at ptr (dequeue and enqueue)
-        self.queue[:, ptr:ptr + batch_size] = keys.T
+        self.queue[:, ptr:ptr + batch_size] = keys.T  # 把每行[ptr, ptr+bs)位置的logits值换成最新的
 
-        ptr = (ptr + batch_size) % self.K  # move pointer
+        ptr = (ptr + batch_size) % self.K  # move pointer 更新指针位置
 
         self.queue_ptr[0] = ptr

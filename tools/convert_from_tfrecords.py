@@ -4,6 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import argparse
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Train FGVC Network")
 
@@ -23,38 +24,41 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 def read_and_decode(filename_queue):
     """Parses a single tf.Example into image and label tensors."""
-    reader = tf.TFRecordReader()
+    reader = tf.compat.v1.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
-    features = tf.parse_single_example(
+    features = tf.compat.v1.parse_single_example(
         serialized_example,
         features={
-            "image": tf.FixedLenFeature([], tf.string),
-            "label": tf.FixedLenFeature([], tf.int64),
+            "image": tf.compat.v1.FixedLenFeature([], tf.string),
+            "label": tf.compat.v1.FixedLenFeature([], tf.int64),
         })
-    image = tf.decode_raw(features["image"], tf.uint8)
-    image.set_shape([3*32*32])
-    label = tf.cast(features["label"], tf.int32)
+    image = tf.compat.v1.decode_raw(features["image"], tf.uint8)
+    image.set_shape([3 * 32 * 32])
+    label = tf.compat.v1.cast(features["label"], tf.int32)
     return image, label
+
 
 def convert_from_tfrecords(data_root, dir_name, num_class, mode, output_path, json_file_prefix):
     if mode == 'valid':
         tfrecord_path = os.path.join(data_root, dir_name, 'eval.tfrecords')
     else:
         tfrecord_path = os.path.join(data_root, dir_name, 'train.tfrecords')
-    filename_queue = tf.train.string_input_producer([tfrecord_path], shuffle=False, num_epochs=1)
+    tf.compat.v1.disable_v2_behavior()
+    filename_queue = tf.compat.v1.train.string_input_producer([tfrecord_path], shuffle=False, num_epochs=1)  # tfv1淘汰API
 
-    reader = tf.TFRecordReader()
+    reader = tf.compat.v1.TFRecordReader()
 
     _, serialized_example = reader.read(filename_queue)
     image, label = read_and_decode(filename_queue)
 
-    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-    sess = tf.Session()
+    init_op = tf.compat.v1.group(tf.compat.v1.global_variables_initializer(), tf.compat.v1.local_variables_initializer())
+    sess = tf.compat.v1.Session()
     sess.run(init_op)
     coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+    threads = tf.compat.v1.train.start_queue_runners(sess=sess, coord=coord)
     annotations = []
     try:
         step = 0
@@ -66,50 +70,50 @@ def convert_from_tfrecords(data_root, dir_name, num_class, mode, output_path, js
                 os.makedirs(im_path)
             save_path = os.path.join(im_path, '{}_{}.jpg'.format(mode, step))
             cv2.imwrite(save_path, images)
-            annotations.append({'fpath': save_path, 'image_id': step, 'category_id':int(labels)})
+            annotations.append({'fpath': save_path, 'image_id': step, 'category_id': int(labels)})
             step += 1
     except tf.errors.OutOfRangeError:
         print('done')
     finally:
         coord.request_stop()
 
-    with open(os.path.join(output_path, json_file_prefix, json_file_prefix+'_{}.json'.format(mode)), 'w') as f:
+    with open(os.path.join(output_path, json_file_prefix, json_file_prefix + '_{}.json'.format(mode)), 'w') as f:
         json.dump({'annotations': annotations, 'num_classes': num_class}, f)
 
-    print('Json has been saved to', os.path.join(output_path, json_file_prefix, json_file_prefix+'_{}.json'.format(mode)))
+    print('Json has been saved to', os.path.join(output_path, json_file_prefix, json_file_prefix + '_{}.json'.format(mode)))
+
 
 if __name__ == '__main__':
     modes = ['train', 'valid']
     args = parse_args()
 
     cifar10_im50 = {'dir': 'cifar-10-data-im-0.02', 'json': 'cifar10_imbalance50', 'class': 10}
-    cifar10_im100 = {'dir': 'cifar-10-data-im-0.01', 'json': 'cifar10_imbalance100', 'class':10}
-    cifar100_im50 = {'dir': 'cifar-100-data-im-0.02', 'json': 'cifar100_imbalance50', 'class':100}
+    cifar10_im100 = {'dir': 'cifar-10-data-im-0.01', 'json': 'cifar10_imbalance100', 'class': 10}
+    cifar100_im50 = {'dir': 'cifar-100-data-im-0.02', 'json': 'cifar100_imbalance50', 'class': 100}
     cifar100_im100 = {'dir': 'cifar-100-data-im-0.01', 'json': 'cifar100_imbalance100', 'class': 100}
     cifar100_origin = {'dir': 'cifar-100-data', 'json': 'cifar100_origin', 'class': 100}
 
-
     for m in modes:
-        # convert_from_tfrecords(
-        #     args.input_path, cifar10_im50['dir'],
-        #     cifar10_im50['class'], m, args.output_path,
-        #     cifar10_im50['json']
-        # )
-        # convert_from_tfrecords(
-        #     args.input_path, cifar10_im100['dir'],
-        #     cifar10_im100['class'], m, args.output_path,
-        #     cifar10_im100['json']
-        # )
-        # convert_from_tfrecords(
-        #     args.input_path, cifar100_im100['dir'],
-        #     cifar100_im100['class'], m, args.output_path,
-        #     cifar100_im100['json']
-        # )
-        # convert_from_tfrecords(
-        #     args.input_path, cifar100_im50['dir'],
-        #     cifar100_im50['class'], m, args.output_path,
-        #     cifar100_im50['json']
-        # )
+        convert_from_tfrecords(
+            args.input_path, cifar10_im50['dir'],
+            cifar10_im50['class'], m, args.output_path,
+            cifar10_im50['json']
+        )
+        convert_from_tfrecords(
+            args.input_path, cifar10_im100['dir'],
+            cifar10_im100['class'], m, args.output_path,
+            cifar10_im100['json']
+        )
+        convert_from_tfrecords(
+            args.input_path, cifar100_im100['dir'],
+            cifar100_im100['class'], m, args.output_path,
+            cifar100_im100['json']
+        )
+        convert_from_tfrecords(
+            args.input_path, cifar100_im50['dir'],
+            cifar100_im50['class'], m, args.output_path,
+            cifar100_im50['json']
+        )
         convert_from_tfrecords(
             args.input_path, cifar100_origin['dir'],
             cifar100_origin['class'], m, args.output_path,
