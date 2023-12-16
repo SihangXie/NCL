@@ -247,7 +247,7 @@ class multi_Network_MOCO(nn.Module):
                 eval(self.cfg.BACKBONE.MULTI_NETWORK_TYPE[i])(
                     self.cfg,
                     last_layer_stride=2,
-                    pretrained_model=cfg.BACKBONE.PRETRAINED_MODEL
+                    pretrained_model=cfg.BACKBONE.PRETRAINED_MODEL,
                 ) for i in range(self.network_num))
         else:
             self.backbone_MA = nn.ModuleList(  # 用来自监督训练的滑动平均模型
@@ -331,21 +331,14 @@ class multi_Network_MOCO(nn.Module):
 
     def extract_feature(self, input_all, **kwargs):
 
-        input, input_MA = input_all
+        input, input_MA = input_all  # input是由3个相同的(bs,3,32,32)输入构成的列表
 
-        feature = []
-        for i in range(self.network_num):
-            x = (self.backbone[i])(input[i], label=kwargs['label'][i])  # ResNet骨干网络，得到特征图
-            x = (self.module[i])(x)  # 全局平均池化层，得到(bs, 64, 1, 1)
-            x = x.view(x.shape[0], -1)  # 重塑成(bs, 64)
-            feature.append(x)  # 每个专家的特征输出存入feature列表中，可以发现每个专家对同一批输入计算的特征图不一样
+        exp_outs = (self.backbone[0])(input[0], label=kwargs['label'][0])  # ResNet骨干网络，得到特征图
+        feature = [(self.module[0])(output).view(output.size(0), -1) for output in exp_outs]  # 全局平均池化层，得到(bs, 64)
 
         feature_MA = []
-        for i in range(self.network_num):  # 用于自监督学习的临时滑动平均模型
-            x = (self.backbone_MA[i])(input_MA[i], label=kwargs['label'][i])
-            x = (self.module_MA[i])(x)
-            x = x.view(x.shape[0], -1)
-            feature_MA.append(x)
+        exp_outs_MA = (self.backbone_MA[0])(input_MA[0], label=kwargs['label'][0])
+        feature_MA = [(self.module_MA[0])(output).view(output.size(0), -1) for output in exp_outs_MA]
         return feature, feature_MA
 
     def get_logits(self, input_all, **kwargs):

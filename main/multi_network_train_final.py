@@ -93,7 +93,7 @@ def setup_seed(seed):
 
 
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '3,4'  # 调试用
+    os.environ['CUDA_VISIBLE_DEVICES'] = '4,5'  # 调试用
     if torch.cuda.is_available():
         print('using GPUS:%d' % torch.cuda.device_count())  # 打印服务器GPU数量
     else:
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     annotations = train_set.get_annotations()  # 获取训练集标注
     num_classes = train_set.get_num_classes()  # 获取训练集类别数量
-    device = torch.device("cuda")  # 指定GPU
+    device = torch.device("cuda:0")  # 指定GPU
 
     # 获取每类样本数的列表，获取所有样本标签构成的列表
     num_class_list, cat_list = get_category_list(annotations, num_classes, cfg)
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     else:  # 非DDP训练进：利用DataParallel()进行多卡计算
         model = model.cuda()  # 把模型放进GPU
         # model = torch.nn.DataParallel(model)    # 利用DataParallel()进行多卡计算
-        model = torch.nn.DataParallel(model, device_ids=[0])  # 调试用：利用DataParallel()进行多卡计算
+        model = torch.nn.DataParallel(model, device_ids=[0, 1])  # 调试用：利用DataParallel()进行多卡计算
     # ----- END MODEL BUILDER ----- # 模型搭建结束
 
     if cfg.TRAIN.DISTRIBUTED:  # DDP训练进
