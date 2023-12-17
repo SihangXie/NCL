@@ -168,6 +168,7 @@ class ResNet(nn.Module):
         out = self.relu(out)
         out = self.pool(out)
 
+        # TODO 添加DKF模块
         out = self.layer1(out)
         if 'layer' in kwargs and kwargs['layer'] == 'layer1':
             out = kwargs['coef'] * out + (1 - kwargs['coef']) * out[kwargs['index']]
