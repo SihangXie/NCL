@@ -211,7 +211,7 @@ class ResNet_Cifar(nn.Module):  # CIFAR的backbone
                 shallow_outs[i % len(shallow_outs)]
             ) for i in range(self.num_experts)]
 
-            exp_outs = [out3s[i] + shallow_expe_outs[i] for i in range(self.num_experts)]  # 对齐后的浅层特征与专家专属特征进行哈达玛积融合
+            exp_outs = [torch.mean(torch.stack([out3s[i], shallow_expe_outs[i]], dim=0), dim=0) for i in range(self.num_experts)]  # 对齐后的浅层特征与专家专属特征进行哈达玛积融合
             return exp_outs
         else:
             out3 = self.layer3(out2)
