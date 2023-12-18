@@ -294,7 +294,6 @@ class multi_Network_MOCO(nn.Module):
                 for i in range(self.network_num))
 
     def forward(self, input, **kwargs):
-
         if "feature_flag" in kwargs:  # 特征提取
             return self.extract_feature(input, **kwargs)
         elif "classifier_flag" in kwargs:  # 分类器学习
@@ -330,14 +329,12 @@ class multi_Network_MOCO(nn.Module):
         return logits_ce, logits, logits_MA
 
     def extract_feature(self, input_all, **kwargs):
-
         input, input_MA = input_all  # input是由3个相同的(bs,3,32,32)输入构成的列表
 
-        exp_outs = (self.backbone[0])(input[0], label=kwargs['label'][0])  # ResNet骨干网络，得到特征图
+        exp_outs = (self.backbone[0])(input[0], self.epoch, label=kwargs['label'][0], cfg=self.cfg)  # ResNet骨干网络，得到特征图
         feature = [(self.module[0])(output).view(output.size(0), -1) for output in exp_outs]  # 全局平均池化层，得到(bs, 64)
 
-        feature_MA = []
-        exp_outs_MA = (self.backbone_MA[0])(input_MA[0], label=kwargs['label'][0])
+        exp_outs_MA = (self.backbone_MA[0])(input_MA[0], self.epoch, label=kwargs['label'][0], cfg=self.cfg)
         feature_MA = [(self.module_MA[0])(output).view(output.size(0), -1) for output in exp_outs_MA]
         return feature, feature_MA
 
@@ -366,6 +363,9 @@ class multi_Network_MOCO(nn.Module):
             logits_MA.append(x)
 
         return logits_ce, logits, logits_MA  # 返回正常模型形状为(64, 100)、(64, 64)的logits和自监督模型形状为(64, 64)的logits
+
+    def reset_epoch(self, epoch):
+        self.epoch = epoch
 
     def extract_feature_maps(self, x):
         x = self.backbone(x)

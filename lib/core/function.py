@@ -31,7 +31,8 @@ def multi_networks_train_model(  # 多专家网络训练器
         cnt = label_list[0].shape[0]  # 获取标签列表第0个批量张量维度的第0个维度：batch_size
 
         optimizer.zero_grad()  # 梯度清零
-        loss, now_acc = combiner.forward(model, criterion, image_list, label_list, meta_list, now_epoch=epoch,
+
+        loss, now_acc = combiner.forward(model, criterion, image_list, label_list, meta_list, epoch,
                                          train=True, cfg=cfg, iteration=i, log=logger,
                                          class_list=criterion.num_class_list)  # 把三份图片、三份标签、三份图片ID传入结合器的multi_network_default()方法
 

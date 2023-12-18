@@ -192,7 +192,10 @@ class ResNet_Cifar(nn.Module):  # CIFAR的backbone
         self.load_state_dict(model_dict)
         print("Backbone model has been loaded......")
 
-    def forward(self, x, **kwargs):
+    def forward(self, x, epoch, **kwargs):
+        # 处理传入参数
+        cfg = kwargs["cfg"]
+        max_epoch = cfg.TRAIN.MAX_EPOCH
         # TODO 此处加入网络深度提取融合模块SHIKE
         out = F.relu(self.bn1(self.conv1(x)))
 
@@ -211,7 +214,9 @@ class ResNet_Cifar(nn.Module):  # CIFAR的backbone
                 shallow_outs[i % len(shallow_outs)]
             ) for i in range(self.num_experts)]
 
-            exp_outs = [out3s[i] * shallow_expe_outs[i] for i in range(self.num_experts)]  # 对齐后的浅层特征与专家专属特征进行哈达玛积融合
+            # 计算渐进式融合系数
+            alpha = (epoch / max_epoch) ** 0.5
+            exp_outs = [(1 - alpha) * out3s[i] + alpha * shallow_expe_outs[i] for i in range(self.num_experts)]  # 对齐后的浅层特征与专家专属特征进行哈达玛积融合
             return exp_outs
         else:
             out3 = self.layer3(out2)

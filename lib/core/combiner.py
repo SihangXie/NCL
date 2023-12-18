@@ -26,9 +26,9 @@ class Combiner:  # 组合器
     def update(self, epoch):
         self.epoch = epoch
 
-    def forward(self, model, criterion, image, label, meta, **kwargs):
+    def forward(self, model, criterion, image, label, meta, epoch, **kwargs):
         return eval("self.{}".format(self.type))(  # 调用下面的方法：multi_network_default()
-            model, criterion, image, label, meta, **kwargs
+            model, criterion, image, label, meta, epoch, **kwargs
         )
 
     def multi_network_default(self, model, criterion, image, label, meta, **kwargs):
@@ -47,10 +47,11 @@ class Combiner:  # 组合器
 
         return loss, now_acc
 
-    def multi_network_default_CON(self, model, criterion, image, label, meta, **kwargs):
+    def multi_network_default_CON(self, model, criterion, image, label, meta, epoch, **kwargs):
 
         image_p = []
         image_k = []
+        cfg = kwargs['cfg']
         for i in range(len(image)):
             image_p.append(image[i][0].to(self.device))
             image_k.append(image[i][1].to(self.device))
@@ -63,6 +64,7 @@ class Combiner:  # 组合器
         else:
             image_k, idx_unshuffle = shuffle_BN(image_k)  # 对image_K里的图片进行shuffle
 
+        model.module.reset_epoch(epoch)
         feature = model((image_p, image_k), feature_flag=True, label=label)  # 返回2个特征输出，一个正常的，一个用于自监督学习的
         output_ce, output_p, output_k = model(feature, classifier_flag=True)  # 返回正常模型形状为(64, 100)、(64, 64)的logits和自监督模型形状为(64, 64)的logits
 
