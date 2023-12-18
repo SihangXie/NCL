@@ -93,7 +93,7 @@ def setup_seed(seed):
 
 
 if __name__ == "__main__":
-    os.environ['CUDA_VISIBLE_DEVICES'] = '4,5'  # 调试用
+    os.environ['CUDA_VISIBLE_DEVICES'] = '3,4'  # 调试用
     if torch.cuda.is_available():
         print('using GPUS:%d' % torch.cuda.device_count())  # 打印服务器GPU数量
     else:

@@ -336,7 +336,6 @@ class multi_Network_MOCO(nn.Module):
         exp_outs = (self.backbone[0])(input[0], label=kwargs['label'][0])  # ResNet骨干网络，得到特征图
         feature = [(self.module[0])(output).view(output.size(0), -1) for output in exp_outs]  # 全局平均池化层，得到(bs, 64)
 
-        feature_MA = []
         exp_outs_MA = (self.backbone_MA[0])(input_MA[0], label=kwargs['label'][0])
         feature_MA = [(self.module_MA[0])(output).view(output.size(0), -1) for output in exp_outs_MA]
         return feature, feature_MA
